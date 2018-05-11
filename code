@@ -1,0 +1,139 @@
+#lang scheme
+;2015400219
+
+(define mylist LOCATIONS)  ; I defined mylist as LOCATIONS to manipulate the given locations
+(define people TRAVELERS)  ; I defined people as TRAVELERS to manipulate the given travelers
+
+; finds each city row from mylist -l is given as mylist below in calculations
+(define (find-city l x) (if(= 0 (length l))
+                           '()
+                           (if (memq x (car l))
+                            (memq x (car l))
+                            (find-city (cdr l) x))))
+
+; finds each traveler row from people -l is given as people below in calculations
+(define (find-person l x) (if(= 0 (length l))
+                           '()
+                           (if (memq x (car l))
+                            (memq x (car l))
+                            (find-person (cdr l) x))))
+
+; from find-city it gets x's attributes and then takes 2nd attribute as railway list
+(define (RAILWAY-CONNECTION x)  (if(pair? (find-city mylist x))
+                                  (caddr (find-city mylist x))
+                                  '() )) ; if no such city x returns empty list
+
+; from find-city it gets y's attributes and then takes 1st attribute as accommodation cost
+(define (ACCOMMODATION-COST y)  (if(pair? (find-city mylist y))
+                                  (cadr (find-city mylist y))
+                                  '0 )) ; if no such city y returns zero
+
+; from find-person it gets z's attributes and then takes 1st attribute as interested cities
+(define (INTERESTED-CITIES z) (if(pair? (find-person people z))
+                                  (cadr (find-person people z))
+                                  '() )) ; if no such person z returns empty list
+
+; from find-person it gets z's attributes and then takes 2nd attribute as interested activities
+(define (INTERESTED-ACTIVITIES z) (if(pair? (find-person people z))
+                                  (caddr (find-person people z))
+                                  '() )) ; if no such person z returns empty list
+
+; from find-person it gets z's attributes and then takes last attribute as z's home town
+(define (HOME z) (if(pair? (find-person people z))
+                                  (cadddr (find-person people z))
+                                  '() )) ; if no such person z returns empty list
+
+; given people list -l and a city -x finds all travelers from city x by recursively traversing people list and adding travelers to a list using cons
+(define (find-home l x) (if(= 0 (length l))
+                           '()
+                           (if (memq x (car l)) ; checking if home is the same
+                            (cons (car (car l)) (find-home (cdr l) x)) ; adding names and recursive call
+                            (find-home (cdr l) x)))) ; recursive call
+
+;actual work is done by above function, this definition just calls it with appropriate arguments
+(define (TRAVELER-FROM x) (find-home people x))
+
+; given people list -l and a city -x finds all travelers interested in that city x by recursively traversing people list and adding travelers to a list using cons
+(define (find-c l x) (if(= 0 (length l))
+                           '()
+                           (if (memq x (cadr (car l))) ; checking if this traveler interested
+                            (cons (car (car l)) (find-c (cdr l) x)) ; adding names and recursive call
+                            (find-c (cdr l) x)))) ; recursive call
+
+;actual work is done by above function, this definition just calls it with appropriate arguments
+(define (INTERESTED-IN-CITY x) (find-c people x))
+
+; given people list -l and a city -x finds all travelers interested in that activity x by recursively traversing people list and adding travelers to a list using cons
+(define (find-a l x) (if(= 0 (length l))
+                           '()
+                           (if (memq x (caddr (car l))) ; checking if this traveler interested
+                            (cons (car (car l)) (find-a (cdr l) x)) ; adding names and recursive call
+                            (find-a (cdr l) x)))); recursive call
+
+;actual work is done by above function, this definition just calls it with appropriate arguments
+(define (INTERESTED-IN-ACTIVITY x) (find-a people x))
+
+; removes first list's elements from second list, returns remaining list
+(define (rem x l) (if(= 0 (length x))
+                       l
+                       (rem (cdr x) (remove (car x) l))))
+
+;removes duplicate elements from given list
+(define (remover l) (if(= 0 (length l))
+                       '()
+                       (if (memq (car l) (cdr l)) ;if first element occurs in tail
+                           (remover (cdr l)) ; remove it and continue
+                           (cons (car l) (remover (cdr l)))))) ; else continue to look
+
+; takes railway list and current cities, find recursively railways of cities in given list
+; In 3rd row of the definition I first take the railway connection of first element of given city then I traverse its connection in deep first manner by calling network again
+; The important thing here is that I remove same elements by calling rem from my list so that my function didn't go in infinite loop
+(define (network l x) (if (= 0 (length l))
+                             '()
+                             (append (rem x (RAILWAY-CONNECTION (car l))) (network (rem x (RAILWAY-CONNECTION (car l))) (append x (list (car l))))  (network (cdr l) (append x (list (car l)))))))
+
+; finds railway network of given x then adds first railway connection to this network -because I delete some of them while traversing- then removes duplicates if exists. Finally remove given city.
+(define (RAILWAY-NETWORK x) (remove x (remover (append (RAILWAY-CONNECTION x) (network (RAILWAY-CONNECTION x) (list x))))))
+
+; given interested activities of traveler as -tl and city's activities as -cl finds if the city has some of traveler's activities.
+(define (act-ex tl cl) (if(= 0 (length tl))
+                       tl ; returns empty list
+                       (if (memq (car tl) cl) ;if cl has any of tl returns tl
+                           tl
+                           (act-ex (cdr tl) cl)))) ;recursive call
+
+;finds accommodation cost of city c for traveler t
+(define (ACCOMMODATION-EXPENSES t c) (cond
+                                       [(null? (find-person people t)) '(no such person error)] ; if given person is not in database, gives error message
+                                       [(null? (find-city mylist c)) '(no such city error)] ; if given city is not in database, gives error message
+                                       [(eqv? c (HOME t)) '0] ; if the city is home town of the traveler, returns zero
+                                       [(pair? (act-ex (INTERESTED-ACTIVITIES t) (cadddr (find-city mylist c)))) (* 3 (ACCOMMODATION-COST c))] ; if activities match 3 days accommodation cost
+                                       [else (ACCOMMODATION-COST c)])) ; if no same activity one day cost
+
+;finds travel cost of city c for traveler t
+(define (TRAVEL-EXPENSES t c) (cond
+                                       [(null? (find-person people t)) '(no such person error)] ; if given person is not in database, gives error message
+                                       [(null? (find-city mylist c)) '(no such city error)] ; if given city is not in database, gives error message
+                                       [(eqv? c (HOME t)) '0] ; if the city is home town of the traveler, returns zero
+                                       [(memq c (RAILWAY-NETWORK (HOME t))) '100] ; if the city c in railway connection of home town of traveler t returns 100
+                                       [else '200])) ; else t uses plane and returns 200
+
+;finds total cost of city c for traveler t
+(define (EXPENSES t c) (cond
+                                       [(equal? (TRAVEL-EXPENSES t c) '(no such person error)) '(no such person error)] ; if given person is not in database, gives error message
+                                       [(equal? (TRAVEL-EXPENSES t c) '(no such city error)) '(no such city error)] ; if given city is not in database, gives error message
+                                       [(equal? (ACCOMMODATION-EXPENSES t c) '(no such person error)) '(no such person error)] ; if given person is not in database, gives error message
+                                       [(equal? (ACCOMMODATION-EXPENSES t c) '(no such city error)) '(no such city error)] ; if given city is not in database, gives error message
+                                       [else (+ (TRAVEL-EXPENSES t c) (ACCOMMODATION-EXPENSES t c))])) ; else adds travel and accommodation expenses and returns it
+
+; given mylist as -l finds cities whose accommodation cost is between x and y inclusively
+(define (bet l x y) (if(= 0 (length l))
+                       '()
+                       (if(<= (cadr (car l)) y)
+                          (if(>= (cadr (car l)) x)
+                          (cons (car (car l)) (bet (cdr l) x y)) ; if <= and >= adds to a list
+                          (bet (cdr l) x y)) ; if <= but not >= recursive call
+                          (bet (cdr l) x y)))) ; if not <= recursive call
+
+;actual work is done by above function, this definition just calls it with appropriate arguments
+(define (IN-BETWEEN x y) (bet mylist x y))
